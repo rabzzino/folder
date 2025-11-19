@@ -2,10 +2,84 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthProvider';
 import { supabase } from '../../lib/supabase';
+import * as Haptics from 'expo-haptics';
+
+// Task Card Component with Long Press Animation
+function TaskCard({ task, onComplete, onPress }: { task: any, onComplete: () => void, onPress: () => void }) {
+  const [isPressed, setIsPressed] = useState(false);
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handleLongPress = () => {
+    // Bounce animation
+    scale.value = withSpring(1.05, { damping: 2 }, () => {
+      scale.value = withSpring(0.95, {}, () => {
+        scale.value = withSpring(1);
+      });
+    });
+    // Trigger completion
+    onComplete();
+  };
+
+  const isCompleted = task.status === 'completed';
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        <View className={`card-brutal mb-3 flex-row items-start ${isCompleted ? 'opacity-60' : ''}`}>
+          <View className="flex-1">
+            <Text className={`text-black font-bold text-lg mb-1 font-mono uppercase ${isCompleted ? 'line-through' : ''}`}>
+              {task.title}
+            </Text>
+            {task.description && (
+              <Text className={`text-textMuted text-sm mb-2 font-mono leading-5 ${isCompleted ? 'line-through' : ''}`} numberOfLines={2}>
+                {task.description}
+              </Text>
+            )}
+            <View className="flex-row items-center mt-1">
+              <View className="bg-black px-2 py-1 mr-2">
+                <Text className="text-white text-[11px] font-bold font-mono">
+                  {task.due_date ? new Date(task.due_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toUpperCase() : '2:00 PM'}
+                </Text>
+              </View>
+              {task.plans?.type && (
+                <View className="border border-black px-2 py-1 mr-2">
+                  <Text className="text-black text-[11px] font-bold font-mono uppercase">{task.plans.type}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+          {!isCompleted ? (
+            <TouchableOpacity 
+              onLongPress={handleLongPress}
+              delayLongPress={500}
+              onPressIn={() => setIsPressed(true)}
+              onPressOut={() => setIsPressed(false)}
+              className="mt-1"
+            >
+              <View className={`w-10 h-10 border-2 border-black bg-white items-center justify-center ${isPressed ? 'bg-gray-100' : ''}`}>
+                <FontAwesome name="square-o" size={18} color="#000000" />
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View className="w-10 h-10 border-2 border-black bg-black items-center justify-center mt-1">
+              <FontAwesome name="check" size={18} color="#FFFFFF" />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -28,12 +102,13 @@ export default function HomeScreen() {
     
     if (myData) setPlans(myData);
 
-    // Fetch Active Tasks for Today's Plan (limit 3)
+    // Fetch Active Tasks for Today's Plan (limit 3, show both pending and completed)
     const { data: taskData } = await supabase
         .from('tasks')
         .select('*, plans(type, title)')
-        .eq('status', 'pending')
-        .limit(3);
+        .in('status', ['pending', 'completed'])
+        .order('status', { ascending: true }) // pending first
+        .limit(5);
     
     if (taskData) setActiveTasks(taskData);
 
@@ -56,8 +131,13 @@ export default function HomeScreen() {
   }, [user]);
 
   const toggleTask = async (taskId: string) => {
-      // Optimistic update
-      setActiveTasks(prev => prev.filter(t => t.id !== taskId));
+      // Haptic feedback
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      // Optimistic update - mark as completed but keep in list
+      setActiveTasks(prev => prev.map(t => 
+          t.id === taskId ? { ...t, status: 'completed' } : t
+      ));
       
       const { error } = await supabase
           .from('tasks')
@@ -150,33 +230,12 @@ export default function HomeScreen() {
 
             {activeTasks.length > 0 ? (
                 activeTasks.map((task, index) => (
-                    <Animated.View key={task.id} entering={FadeInDown.delay(index * 100)}>
-                         <View className="card-brutal mb-3 flex-row items-start">
-                            <View className="flex-1">
-                                <Text className="text-black font-bold text-base mb-1 font-mono uppercase">{task.title}</Text>
-                                {task.description && (
-                                    <Text className="text-textMuted text-xs mb-2 font-mono leading-4" numberOfLines={2}>
-                                        {task.description}
-                                    </Text>
-                                )}
-                                <View className="flex-row items-center mt-1">
-                                    <View className="bg-black px-2 py-0.5 mr-2">
-                                        <Text className="text-white text-[10px] font-bold font-mono">2:00 PM</Text>
-                                    </View>
-                                    {task.plans?.type && (
-                                        <View className="border border-black px-2 py-0.5 mr-2">
-                                            <Text className="text-black text-[10px] font-bold font-mono uppercase">{task.plans.type}</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-                            <TouchableOpacity onPress={() => toggleTask(task.id)} className="mt-1">
-                                <View className="w-8 h-8 border-2 border-black bg-white items-center justify-center active:bg-black">
-                                    <FontAwesome name="check" size={14} color="#000000" />
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-                    </Animated.View>
+                    <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onComplete={() => toggleTask(task.id)}
+                        onPress={() => router.push(`/task/${task.id}`)}
+                    />
                 ))
             ) : (
                  <View className="card-brutal border-dashed items-center py-8">
