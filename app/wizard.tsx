@@ -12,6 +12,7 @@ interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
+  options?: string[]; // Chips provided by AI
 }
 
 const PLAN_TYPES = [
@@ -26,53 +27,75 @@ export default function WizardScreen() {
   const [input, setInput] = useState('');
   const [planType, setPlanType] = useState<PlanType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [readyToPlan, setReadyToPlan] = useState(false);
+  
   const { user } = useAuth();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-     // Initial state: No messages, user sees selection buttons
-  }, []);
-
-  const selectPlanType = (type: string) => {
+  const selectPlanType = async (type: string) => {
       const selectedType = type as PlanType;
       setPlanType(selectedType);
+      setLoading(true);
       
-      let initialQuestion = "";
-      switch(selectedType) {
-          case 'wedding': initialQuestion = "Congratulations! When is the big day and how many guests are you expecting?"; break;
-          case 'fitness': initialQuestion = "Let's get moving. What are your main fitness goals and current activity level?"; break;
-          case 'home': initialQuestion = "A tidy home is a happy home. Who lives with you and what are the main chores you need help with?"; break;
-          default: initialQuestion = "What would you like to plan today? Give me as much detail as possible."; break;
+      // Start the chat loop
+      try {
+          const response = await OpenAIService.chat([], selectedType);
+          setMessages([{ 
+              id: Date.now().toString(), 
+              text: response.message, 
+              sender: 'ai',
+              options: response.options 
+          }]);
+      } catch (e) {
+          Alert.alert("Error", "Failed to start chat");
+      } finally {
+          setLoading(false);
       }
-
-      setMessages([
-          { id: '1', text: initialQuestion, sender: 'ai' }
-      ]);
   };
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+  const sendMessage = async (textOverride?: string) => {
+    const textToSend = textOverride || input;
+    if (!textToSend.trim()) return;
 
-    const userMsg: Message = { id: Date.now().toString(), text: input, sender: 'user' };
+    const userMsg: Message = { id: Date.now().toString(), text: textToSend, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    
-    // If we have context (messages > 1), generate plan. 
-    // Real app would have a more complex state machine or intent classification.
-    if (messages.length >= 1) {
-        generatePlan(input);
+    setLoading(true);
+
+    try {
+        // Prepare history for API
+        const history = messages.concat(userMsg).map(m => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.text
+        })) as any;
+
+        const response = await OpenAIService.chat(history, planType || 'general');
+        
+        const aiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            text: response.message,
+            sender: 'ai',
+            options: response.options
+        };
+        
+        setMessages(prev => [...prev, aiMsg]);
+        if (response.ready_to_plan) setReadyToPlan(true);
+
+    } catch (e: any) {
+        Alert.alert("Error", e.message);
+    } finally {
+        setLoading(false);
     }
   };
 
-  const generatePlan = async (context: string) => {
+  const generatePlan = async () => {
       if (!user || !planType) return;
       setLoading(true);
       
-      setMessages(prev => [...prev, { id: 'generating', text: 'Designing your perfect plan... This may take a moment.', sender: 'ai' }]);
+      setMessages(prev => [...prev, { id: 'generating', text: 'Perfect! Designing your plan now...', sender: 'ai' }]);
 
       try {
-          // Combine all user messages for context
           const fullContext = messages
             .filter(m => m.sender === 'user')
             .map(m => m.text)
@@ -80,7 +103,7 @@ export default function WizardScreen() {
 
           const planData = await OpenAIService.generatePlan({
               type: planType,
-              context: fullContext + " " + context
+              context: fullContext
           });
 
           const { data: plan, error: planError } = await supabase
@@ -127,31 +150,42 @@ export default function WizardScreen() {
         <TouchableOpacity onPress={() => router.back()} className="mr-4">
             <FontAwesome name="arrow-left" size={24} color="#D4AF37" />
         </TouchableOpacity>
-        <Text className="text-text font-bold text-xl">New Plan</Text>
+        <Text className="text-text font-bold text-xl">AI Planner</Text>
+        {readyToPlan && (
+            <TouchableOpacity onPress={generatePlan} className="ml-auto bg-primary px-3 py-1 rounded-full">
+                <Text className="text-background font-bold text-xs">Create Plan</Text>
+            </TouchableOpacity>
+        )}
       </View>
 
       {!planType ? (
         <View className="flex-1 p-6 justify-center">
-            <Text className="text-3xl font-bold text-text mb-2">What would you like to plan?</Text>
-            <Text className="text-textMuted text-lg mb-8">Select a category to get started.</Text>
-            
-            <View className="flex-row flex-wrap justify-between">
-                {PLAN_TYPES.map((type, index) => (
-                    <Animated.View 
-                        key={type.id} 
-                        entering={FadeIn.delay(index * 100)}
-                        className="w-[48%] mb-4"
-                    >
-                        <TouchableOpacity 
-                            onPress={() => selectPlanType(type.id)}
-                            className="bg-surface p-6 rounded-2xl border border-border items-center aspect-square justify-center"
-                        >
-                            <FontAwesome name={type.icon as any} size={32} color="#D4AF37" className="mb-4" />
-                            <Text className="text-text font-bold text-center">{type.label}</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-                ))}
-            </View>
+             {loading ? (
+                <ActivityIndicator size="large" color="#D4AF37" />
+             ) : (
+                <>
+                    <Text className="text-3xl font-bold text-text mb-2">What are we planning?</Text>
+                    <Text className="text-textMuted text-lg mb-8">Choose a category to start the chat.</Text>
+                    
+                    <View className="flex-row flex-wrap justify-between">
+                        {PLAN_TYPES.map((type, index) => (
+                            <Animated.View 
+                                key={type.id} 
+                                entering={FadeIn.delay(index * 100)}
+                                className="w-[48%] mb-4"
+                            >
+                                <TouchableOpacity 
+                                    onPress={() => selectPlanType(type.id)}
+                                    className="bg-surface p-6 rounded-2xl border border-border items-center aspect-square justify-center"
+                                >
+                                    <FontAwesome name={type.icon as any} size={32} color="#D4AF37" className="mb-4" />
+                                    <Text className="text-text font-bold text-center">{type.label}</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        ))}
+                    </View>
+                </>
+             )}
         </View>
       ) : (
           <>
@@ -161,8 +195,26 @@ export default function WizardScreen() {
                 keyExtractor={item => item.id}
                 contentContainerStyle={{ padding: 16 }}
                 renderItem={({ item }) => (
-                    <View className={`mb-4 max-w-[80%] p-4 rounded-2xl ${item.sender === 'user' ? 'bg-primary self-end' : 'bg-surface self-start border border-border'}`}>
-                        <Text className={item.sender === 'user' ? 'text-background font-medium' : 'text-text'}>{item.text}</Text>
+                    <View className={`mb-4 max-w-[85%] ${item.sender === 'user' ? 'self-end' : 'self-start'}`}>
+                        <View className={`p-4 rounded-2xl ${item.sender === 'user' ? 'bg-primary' : 'bg-surface border border-border'}`}>
+                            <Text className={item.sender === 'user' ? 'text-background font-medium' : 'text-text'}>{item.text}</Text>
+                        </View>
+                        
+                        {/* Render Options if AI */}
+                        {item.sender === 'ai' && item.options && (
+                            <View className="flex-row flex-wrap mt-2">
+                                {item.options.map((opt, idx) => (
+                                    <TouchableOpacity 
+                                        key={idx} 
+                                        onPress={() => sendMessage(opt)}
+                                        disabled={loading}
+                                        className="bg-surfaceHighlight border border-border rounded-full px-4 py-2 mr-2 mb-2"
+                                    >
+                                        <Text className="text-textMuted text-xs font-bold">{opt}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
                     </View>
                 )}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
@@ -172,14 +224,14 @@ export default function WizardScreen() {
                 <View className="p-4 border-t border-border bg-background flex-row items-center">
                     <TextInput 
                         className="flex-1 bg-surface text-text p-4 rounded-xl border border-border mr-2"
-                        placeholder="Type your message..."
+                        placeholder={readyToPlan ? "Say 'Create' or add more details..." : "Type or select an option..."}
                         placeholderTextColor="#666"
                         value={input}
                         onChangeText={setInput}
                         editable={!loading}
                     />
                     <TouchableOpacity 
-                        onPress={sendMessage} 
+                        onPress={() => sendMessage()} 
                         disabled={loading}
                         className={`p-4 rounded-xl ${loading ? 'bg-surface' : 'bg-primary'}`}
                     >

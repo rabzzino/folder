@@ -30,7 +30,6 @@ export default function HomeScreen() {
     if (myData) setPlans(myData);
 
     // Fetch Active Tasks for Today's Plan (limit 3)
-    // Note: Real app would filter by due_date = today, here we just take top 3 pending
     const { data: taskData } = await supabase
         .from('tasks')
         .select('*, plans(type, title)')
@@ -57,11 +56,19 @@ export default function HomeScreen() {
     if (user) fetchPlans();
   }, [user]);
 
-  const getGreeting = () => {
-      const hour = new Date().getHours();
-      if (hour < 12) return "Good Morning";
-      if (hour < 18) return "Good Afternoon";
-      return "Good Evening";
+  const toggleTask = async (taskId: string) => {
+      // Optimistic update
+      setActiveTasks(prev => prev.filter(t => t.id !== taskId));
+      
+      const { error } = await supabase
+          .from('tasks')
+          .update({ status: 'completed' })
+          .eq('id', taskId);
+      
+      if (error) {
+          // Revert if error (fetch again)
+          fetchPlans();
+      }
   };
 
   const getFormattedDate = () => {
@@ -153,6 +160,11 @@ export default function HomeScreen() {
                             <View className={`w-1 h-10 rounded-full mr-4 ${task.plans?.type === 'wedding' ? 'bg-pink-400' : task.plans?.type === 'fitness' ? 'bg-green-400' : 'bg-blue-400'}`} />
                             <View className="flex-1">
                                 <Text className="text-text font-bold text-base mb-1">{task.title}</Text>
+                                {task.description && (
+                                    <Text className="text-textMuted text-sm mb-2 leading-5" numberOfLines={2}>
+                                        {task.description}
+                                    </Text>
+                                )}
                                 <View className="flex-row items-center">
                                     <FontAwesome name="clock-o" size={10} color="#666" className="mr-1" />
                                     <Text className="text-textMuted text-xs mr-3">2:00 PM</Text>
@@ -164,7 +176,7 @@ export default function HomeScreen() {
                                     )}
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => {}}>
+                            <TouchableOpacity onPress={() => toggleTask(task.id)}>
                                 <View className="w-8 h-8 rounded-full border border-border items-center justify-center">
                                     <FontAwesome name="check" size={12} color="#666" />
                                 </View>

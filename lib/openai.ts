@@ -2,9 +2,6 @@ import OpenAI from 'openai';
 
 const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
 
-// Initialize OpenAI client
-// Note: In a production app, you should proxy requests through your backend
-// to avoid exposing your API key in the binary. For this MVP/demo, we use the client directly.
 export const openai = new OpenAI({
   apiKey: apiKey,
   dangerouslyAllowBrowser: true,
@@ -17,17 +14,49 @@ export interface PlanGenerationParams {
   duration?: string;
   goals?: string[];
   constraints?: string[];
-  context?: any; // Additional QA answers
+  context?: any;
+}
+
+export interface ChatResponse {
+  message: string;
+  options?: string[];
+  ready_to_plan?: boolean;
 }
 
 export class OpenAIService {
+  static async chat(history: { role: 'user' | 'assistant', content: string }[], planType: string): Promise<ChatResponse> {
+     try {
+       const completion = await openai.chat.completions.create({
+         messages: [
+           { role: "system", content: `You are an expert AI planner consultant for a ${planType} plan. 
+             Your goal is to gather requirements to build a perfect plan. 
+             Ask ONE clear question at a time. 
+             Provide 2-4 short, actionable "options" for the user to choose from to answer your question.
+             If you have enough information (at least 3-4 interactions), set "ready_to_plan" to true.
+             Output strictly JSON: { "message": "question text", "options": ["opt1", "opt2"], "ready_to_plan": boolean }` 
+           },
+           ...history
+         ],
+         model: "gpt-4o",
+         response_format: { type: "json_object" },
+       });
+
+       const content = completion.choices[0].message.content;
+       if (!content) throw new Error("No content");
+       return JSON.parse(content);
+     } catch (error) {
+       console.error("Chat error:", error);
+       throw error;
+     }
+  }
+
   static async generatePlan(params: PlanGenerationParams) {
     const prompt = this.generatePlanPrompt(params);
     
     try {
       const completion = await openai.chat.completions.create({
         messages: [
-          { role: "system", content: "You are an expert life planner AI. You create detailed, actionable plans for weddings, fitness, household management, and more. Output strictly JSON." },
+          { role: "system", content: "You are an expert life planner AI. You create detailed, actionable plans. Output strictly JSON." },
           { role: "user", content: prompt }
         ],
         model: "gpt-4o",
@@ -67,4 +96,3 @@ export class OpenAIService {
     Be specific, culturally aware if context provided, and actionable.`;
   }
 }
-

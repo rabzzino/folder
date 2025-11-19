@@ -15,6 +15,12 @@ export default function PlanDetailScreen() {
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
+  
+  const [editTaskModalVisible, setEditTaskModalVisible] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
   const router = useRouter();
 
   useEffect(() => {
@@ -35,10 +41,8 @@ export default function PlanDetailScreen() {
   const fetchCollaborators = async () => {
       const { data } = await supabase
         .from('plan_collaborators')
-        .select('*, user:profiles(*)') // Assuming profiles table exists and is linked (if not, we'd need to adjust schema to store emails or use auth table differently, but for now we just list them)
+        .select('*, user:profiles(*)') 
         .eq('plan_id', id);
-      // Note: since we can't easily select auth.users email directly due to security, in a real app we'd join with a public profiles table. 
-      // For MVP/Demo without profiles populated, we might just show IDs or mock names.
       setCollaborators(data || []);
   };
 
@@ -49,21 +53,51 @@ export default function PlanDetailScreen() {
   };
 
   const assignTask = async (taskId: string) => {
-      // Simple toggle assignment for MVP (Self vs Unassigned)
-      // Real app would open a picker to select a collaborator
       const task = tasks.find(t => t.id === taskId);
-      const newAssignee = task.assigned_to ? null : user?.email; // Just using email or ID as "name" display
+      const newAssignee = task.assigned_to ? null : user?.email; 
       
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: newAssignee } : t));
       await supabase.from('tasks').update({ assigned_to: newAssignee }).eq('id', taskId);
   };
 
+  const deleteTask = async (taskId: string) => {
+      Alert.alert(
+          "Delete Task", 
+          "Are you sure you want to delete this task?",
+          [
+              { text: "Cancel", style: "cancel" },
+              { 
+                  text: "Delete", 
+                  style: "destructive",
+                  onPress: async () => {
+                      setTasks(prev => prev.filter(t => t.id !== taskId));
+                      await supabase.from('tasks').delete().eq('id', taskId);
+                  }
+              }
+          ]
+      );
+  };
+
+  const openEditModal = (task: any) => {
+      setEditingTask(task);
+      setEditTitle(task.title);
+      setEditDesc(task.description || '');
+      setEditTaskModalVisible(true);
+  };
+
+  const saveTaskEdit = async () => {
+      if (!editingTask) return;
+      
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, title: editTitle, description: editDesc } : t));
+      
+      await supabase.from('tasks').update({ title: editTitle, description: editDesc }).eq('id', editingTask.id);
+      setEditTaskModalVisible(false);
+      setEditingTask(null);
+  };
+
   const sharePlan = async () => {
       if (!shareEmail) return;
-      
-      // In a real app, we'd look up the user ID by email via an Edge Function (admin auth).
-      // For this demo, we can't invite by email directly without backend logic.
-      // We will simulate the UI success for the user flow demonstration.
       Alert.alert("Invite Sent", `Invitation sent to ${shareEmail}. (Backend logic required for actual user lookup)`);
       setShareModalVisible(false);
       setShareEmail('');
@@ -131,11 +165,21 @@ export default function PlanDetailScreen() {
                             </View>
                         )}
                     </View>
+                    
+                    {/* Edit/Delete Actions */}
+                    <View className="flex-row ml-2">
+                        <TouchableOpacity onPress={() => openEditModal(task)} className="mr-3 p-1">
+                            <FontAwesome name="pencil" size={14} color="#666" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteTask(task.id)} className="p-1">
+                            <FontAwesome name="trash" size={14} color="#FF4444" />
+                        </TouchableOpacity>
+                    </View>
                 </TouchableOpacity>
              </Animated.View>
         ))}
         
-        <Text className="text-textMuted text-xs text-center mt-4 mb-8">Long press a task to assign it to yourself.</Text>
+        <Text className="text-textMuted text-xs text-center mt-4 mb-8">Long press to assign. Tap pencil to edit.</Text>
       </ScrollView>
 
       {/* Share Modal */}
@@ -148,8 +192,6 @@ export default function PlanDetailScreen() {
           <View className="flex-1 justify-end bg-black/50">
               <View className="bg-surface p-6 rounded-t-3xl border-t border-border">
                   <Text className="text-text font-bold text-xl mb-4">Share Plan</Text>
-                  <Text className="text-textMuted mb-4">Invite a partner or friend to collaborate on this plan.</Text>
-                  
                   <TextInput 
                     className="bg-background text-text p-4 rounded-xl border border-border mb-4"
                     placeholder="Enter email address"
@@ -159,16 +201,59 @@ export default function PlanDetailScreen() {
                     autoCapitalize="none"
                     keyboardType="email-address"
                   />
-                  
                   <TouchableOpacity 
                     onPress={sharePlan}
                     className="bg-primary p-4 rounded-xl items-center mb-3"
                   >
                       <Text className="text-background font-bold text-lg">Send Invite</Text>
                   </TouchableOpacity>
-                  
                   <TouchableOpacity 
                     onPress={() => setShareModalVisible(false)}
+                    className="p-4 items-center"
+                  >
+                      <Text className="text-textMuted">Cancel</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editTaskModalVisible}
+        onRequestClose={() => setEditTaskModalVisible(false)}
+      >
+          <View className="flex-1 justify-end bg-black/50">
+              <View className="bg-surface p-6 rounded-t-3xl border-t border-border">
+                  <Text className="text-text font-bold text-xl mb-4">Edit Task</Text>
+                  
+                  <TextInput 
+                    className="bg-background text-text p-4 rounded-xl border border-border mb-4"
+                    placeholder="Task Title"
+                    placeholderTextColor="#666"
+                    value={editTitle}
+                    onChangeText={setEditTitle}
+                  />
+
+                  <TextInput 
+                    className="bg-background text-text p-4 rounded-xl border border-border mb-4 min-h-[80px]"
+                    placeholder="Description (Optional)"
+                    placeholderTextColor="#666"
+                    value={editDesc}
+                    onChangeText={setEditDesc}
+                    multiline
+                  />
+                  
+                  <TouchableOpacity 
+                    onPress={saveTaskEdit}
+                    className="bg-primary p-4 rounded-xl items-center mb-3"
+                  >
+                      <Text className="text-background font-bold text-lg">Save Changes</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={() => setEditTaskModalVisible(false)}
                     className="p-4 items-center"
                   >
                       <Text className="text-textMuted">Cancel</Text>

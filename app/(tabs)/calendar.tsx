@@ -30,6 +30,21 @@ export default function CalendarScreen() {
     if (data) setTasks(data);
   };
 
+  const toggleTask = async (taskId: string) => {
+      // Optimistic update
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      
+      const { error } = await supabase
+          .from('tasks')
+          .update({ status: 'completed' })
+          .eq('id', taskId);
+      
+      if (error) {
+          // Revert if error (fetch again)
+          fetchTasks();
+      }
+  };
+
   const syncToCalendar = async () => {
     try {
         const { status } = await Calendar.requestCalendarPermissionsAsync();
@@ -98,10 +113,15 @@ export default function CalendarScreen() {
         renderItem={({ item }) => (
             <View className="bg-surface p-4 rounded-xl border border-border mb-3 flex-row items-center">
                 <View className="w-1 h-8 bg-primary rounded-full mr-4" />
-                <View>
+                <View className="flex-1">
                     <Text className="text-text font-medium">{item.title}</Text>
                     <Text className="text-textMuted text-xs">{item.plans?.title}</Text>
                 </View>
+                <TouchableOpacity onPress={() => toggleTask(item.id)} className="ml-2">
+                    <View className="w-8 h-8 rounded-full border border-border items-center justify-center">
+                        <FontAwesome name="check" size={12} color="#666" />
+                    </View>
+                </TouchableOpacity>
             </View>
         )}
       />
