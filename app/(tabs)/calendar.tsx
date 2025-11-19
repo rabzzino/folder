@@ -22,7 +22,6 @@ export default function CalendarScreen() {
   }, [user]);
 
   const fetchTasks = async () => {
-    // Fetch all pending tasks
     const { data } = await supabase
         .from('tasks')
         .select('*, plans(title)')
@@ -31,7 +30,6 @@ export default function CalendarScreen() {
   };
 
   const toggleTask = async (taskId: string) => {
-      // Optimistic update
       setTasks(prev => prev.filter(t => t.id !== taskId));
       
       const { error } = await supabase
@@ -40,7 +38,6 @@ export default function CalendarScreen() {
           .eq('id', taskId);
       
       if (error) {
-          // Revert if error (fetch again)
           fetchTasks();
       }
   };
@@ -49,7 +46,7 @@ export default function CalendarScreen() {
     try {
         const { status } = await Calendar.requestCalendarPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert("Permission needed", "We need calendar access to sync your tasks.");
+            Alert.alert("PERMISSION NEEDED", "WE NEED CALENDAR ACCESS TO SYNC YOUR TASKS.");
             return;
         }
 
@@ -57,69 +54,68 @@ export default function CalendarScreen() {
         const defaultCalendar = calendars.find(c => c.isPrimary) || calendars[0];
 
         if (!defaultCalendar) {
-            Alert.alert("Error", "No calendar found on device.");
+            Alert.alert("ERROR", "NO CALENDAR FOUND ON DEVICE.");
             return;
         }
 
         let count = 0;
         for (const task of tasks) {
-             // Simple logic: Create event for tomorrow if no date, or use due_date
              const startDate = task.due_date ? new Date(task.due_date) : new Date(Date.now() + 86400000);
-             const endDate = new Date(startDate.getTime() + 3600000); // 1 hour
+             const endDate = new Date(startDate.getTime() + 3600000); 
 
              await Calendar.createEventAsync(defaultCalendar.id, {
-                 title: `PlannerAI: ${task.title}`,
+                 title: `PLANNERAI: ${task.title}`,
                  startDate,
                  endDate,
                  notes: task.description,
-                 location: 'PlannerAI App'
+                 location: 'PLANNERAI APP'
              });
              count++;
         }
 
-        Alert.alert("Success", `Synced ${count} tasks to your calendar!`);
+        Alert.alert("SUCCESS", `SYNCED ${count} TASKS TO YOUR CALENDAR!`);
 
     } catch (e: any) {
-        Alert.alert("Error", e.message);
+        Alert.alert("ERROR", e.message);
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-background p-4">
-      <Text className="text-3xl font-bold text-text mb-2">Calendar</Text>
-      <Text className="text-textMuted mb-6">Sync your plan tasks to your device calendar.</Text>
+      <Text className="text-3xl font-bold text-black mb-2 font-mono uppercase border-b-2 border-black pb-2 self-start">CALENDAR</Text>
+      <Text className="text-textMuted mb-6 font-mono uppercase text-sm">SYNC PLAN TASKS TO DEVICE.</Text>
 
-      <View className="bg-surface p-6 rounded-2xl border border-border items-center mb-8">
-         <View className="w-16 h-16 bg-primary/20 rounded-full items-center justify-center mb-4">
-            <FontAwesome name="calendar" size={32} color="#D4AF37" />
+      <View className="bg-white p-6 border-2 border-black shadow-block items-center mb-8">
+         <View className="w-16 h-16 bg-white border-2 border-black items-center justify-center mb-4 shadow-block-sm">
+            <FontAwesome name="calendar" size={32} color="#000000" />
          </View>
-         <Text className="text-text font-bold text-xl mb-2">Sync Tasks</Text>
-         <Text className="text-textMuted text-center mb-6">
-            Add {tasks.length} pending tasks to your default calendar to stay on track.
+         <Text className="text-black font-bold text-xl mb-2 font-mono uppercase">SYNC TASKS</Text>
+         <Text className="text-textMuted text-center mb-6 font-mono uppercase text-xs leading-5">
+            ADD {tasks.length} PENDING TASKS TO YOUR DEFAULT CALENDAR TO STAY ON TRACK.
          </Text>
          
          <TouchableOpacity 
             onPress={syncToCalendar}
-            className="bg-primary py-3 px-8 rounded-xl shadow-lg shadow-primary/20"
+            className="bg-black py-3 px-8 border-2 border-black shadow-block-sm active:shadow-none active:translate-y-0.5"
          >
-            <Text className="text-background font-bold text-lg">Sync Now</Text>
+            <Text className="text-white font-bold text-lg font-mono uppercase">SYNC NOW</Text>
          </TouchableOpacity>
       </View>
 
-      <Text className="text-text font-bold text-xl mb-4">Upcoming Tasks</Text>
+      <Text className="text-black font-bold text-xl mb-4 font-mono uppercase border-b-2 border-black pb-1 self-start">UPCOMING</Text>
       <FlatList 
         data={tasks}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-            <View className="bg-surface p-4 rounded-xl border border-border mb-3 flex-row items-center">
-                <View className="w-1 h-8 bg-primary rounded-full mr-4" />
+            <View className="bg-white p-4 border-2 border-black shadow-block-sm mb-3 flex-row items-center">
+                <View className="w-2 h-full bg-black mr-4 border border-black" />
                 <View className="flex-1">
-                    <Text className="text-text font-medium">{item.title}</Text>
-                    <Text className="text-textMuted text-xs">{item.plans?.title}</Text>
+                    <Text className="text-black font-bold font-mono uppercase">{item.title}</Text>
+                    <Text className="text-textMuted text-xs font-mono uppercase">{item.plans?.title}</Text>
                 </View>
                 <TouchableOpacity onPress={() => toggleTask(item.id)} className="ml-2">
-                    <View className="w-8 h-8 rounded-full border border-border items-center justify-center">
-                        <FontAwesome name="check" size={12} color="#666" />
+                    <View className="w-8 h-8 border-2 border-black bg-white items-center justify-center active:bg-black">
+                        <FontAwesome name="check" size={12} color="#000000" />
                     </View>
                 </TouchableOpacity>
             </View>

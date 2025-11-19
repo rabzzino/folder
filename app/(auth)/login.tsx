@@ -28,31 +28,33 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1 bg-background justify-center px-6">
-      <View className="mb-12">
-        <Text className="text-primary text-5xl font-bold mb-2 tracking-tight">PlannerAI</Text>
-        <Text className="text-textMuted text-xl font-light">Design your life, intelligently.</Text>
+      <View className="mb-12 border-l-4 border-black pl-4">
+        <Text className="text-black text-5xl font-bold mb-2 font-mono uppercase">PLANNER.AI</Text>
+        <Text className="text-textMuted text-xl font-mono">DESIGN YOUR LIFE.</Text>
       </View>
 
-      <View className="space-y-5">
-        <View className="bg-surface p-4 rounded-2xl border border-border">
+      <View className="space-y-6">
+        <View className="card-brutal p-0">
+          <Text className="bg-black text-white text-xs font-bold px-2 py-1 self-start font-mono uppercase">EMAIL</Text>
           <TextInput
             onChangeText={(text) => setEmail(text)}
             value={email}
-            placeholder="Email Address"
-            placeholderTextColor="#666"
+            placeholder="ENTER EMAIL..."
+            placeholderTextColor="#999"
             autoCapitalize="none"
-            className="text-text text-lg"
+            className="text-black text-lg font-mono p-4 h-14"
           />
         </View>
-        <View className="bg-surface p-4 rounded-2xl border border-border">
+        <View className="card-brutal p-0">
+          <Text className="bg-black text-white text-xs font-bold px-2 py-1 self-start font-mono uppercase">PASSWORD</Text>
           <TextInput
             onChangeText={(text) => setPassword(text)}
             value={password}
-            placeholder="Password"
-            placeholderTextColor="#666"
+            placeholder="ENTER PASSWORD..."
+            placeholderTextColor="#999"
             secureTextEntry={true}
             autoCapitalize="none"
-            className="text-text text-lg"
+            className="text-black text-lg font-mono p-4 h-14"
           />
         </View>
       </View>
@@ -60,20 +62,19 @@ export default function Login() {
       <TouchableOpacity 
         onPress={signInWithEmail}
         disabled={loading}
-        className="mt-10 bg-primary p-5 rounded-2xl items-center shadow-lg shadow-primary/20 active:opacity-90"
+        className="mt-10 btn-brutal items-center bg-black active:bg-neutral-800"
       >
-        <Text className="text-background font-bold text-xl">{loading ? 'Authenticating...' : 'Sign In'}</Text>
+        <Text className="text-white font-bold text-xl font-mono uppercase">{loading ? 'LOADING...' : 'ENTER'}</Text>
       </TouchableOpacity>
 
-      <View className="flex-row justify-center mt-8">
-        <Text className="text-textMuted text-lg">New here? </Text>
+      <View className="flex-row justify-center mt-8 items-center">
+        <Text className="text-black text-lg font-mono mr-2">NEW?</Text>
         <Link href="/sign-up" asChild>
           <TouchableOpacity>
-            <Text className="text-primary font-bold text-lg">Create Account</Text>
+            <Text className="text-black font-bold text-lg font-mono underline uppercase">CREATE ACCOUNT</Text>
           </TouchableOpacity>
         </Link>
       </View>
     </SafeAreaView>
   );
 }
-

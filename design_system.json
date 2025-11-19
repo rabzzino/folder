@@ -1,0 +1,154 @@
+{
+  "design_system": {
+    "style": {
+      "vibe": "playful_minimal, hand-drawn_ui, sketch_wireframe",
+      "color_palette": {
+        "background": "#F5F5F5",
+        "panel_fill": "#FFFFFF",
+        "panel_stroke": "#000000",
+        "text_primary": "#000000",
+        "accent": "#000000"
+      },
+      "borders": {
+        "thickness": "2px",
+        "radius": "0px",
+        "style": "solid",
+        "look": "imperfect_sketch_line"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "monospace_or_handwritten_style",
+          "weight": "bold",
+          "case": "uppercase",
+          "letter_spacing": "slight_wide"
+        },
+        "label": {
+          "font_family": "monospace_or_handwritten_style",
+          "size": "medium",
+          "style": "all_caps_or_simple_caps"
+        },
+        "input_text": {
+          "font_family": "monospace_or_handwritten_style",
+          "size": "medium"
+        },
+        "button_text": {
+          "font_family": "monospace_or_handwritten_style",
+          "weight": "bold"
+        }
+      },
+      "shadows": {
+        "type": "simple_offset_shadow",
+        "direction": "bottom_right",
+        "strength": "medium_low",
+        "look": "cartoon_block_shadow"
+      }
+    },
+    "layout": {
+      "page": {
+        "alignment": "center",
+        "padding": "large",
+        "spacing": "medium_to_large"
+      },
+      "form_container": {
+        "width": "90pct_mobile / 500px_desktop",
+        "padding": "large",
+        "border_box": true,
+        "spacing_between_items": "medium"
+      }
+    },
+    "components": {
+      "text_field": {
+        "border": "2px_solid_black",
+        "fill": "white",
+        "height": "48px",
+        "padding": "8px",
+        "font": "monospace_or_handwritten",
+        "shadow": "subtle_offset"
+      },
+      "checkbox": {
+        "size": "20px",
+        "border": "2px_solid_black",
+        "checkmark_style": "filled_square",
+        "label_spacing": "10px",
+        "alignment": "left"
+      },
+      "textarea": {
+        "border": "2px_solid_black",
+        "fill": "white",
+        "padding": "8px",
+        "height": "160px",
+        "font": "monospace_or_handwritten",
+        "shadow": "subtle_offset"
+      },
+      "button": {
+        "background": "white",
+        "border": "2px_solid_black",
+        "padding_vertical": "14px",
+        "padding_horizontal": "24px",
+        "shadow": "offset_block_shadow",
+        "font": {
+          "style": "bold",
+          "family": "monospace_or_handwritten"
+        }
+      }
+    },
+    "structure": {
+      "header": {
+        "elements": [
+          "main_title",
+          "subtitle_block"
+        ],
+        "alignment": "center",
+        "spacing": "small"
+      },
+      "form": {
+        "fields": [
+          "name_field",
+          "email_field",
+          "attendance_options",
+          "comments_box"
+        ],
+        "cta": "submit_button"
+      },
+      "hierarchy": [
+        "page \u2192 header",
+        "page \u2192 form_container",
+        "form_container \u2192 form_fields",
+        "form_container \u2192 cta_button"
+      ]
+    },
+    "interaction": {
+      "checkbox": {
+        "animation": "instant_fill_block",
+        "hover_state": "slightly_darker_border"
+      },
+      "button": {
+        "hover_state": {
+          "shadow_shift": "1px_down_right",
+          "border_darkening": "5pct"
+        },
+        "press_state": {
+          "shadow_removed": true
+        }
+      }
+    },
+    "usage_guidelines": {
+      "overall_feel": "looks_hand_drawn_but_aligned, playful_minimal, wireframe_cartoon",
+      "consistency_rules": [
+        "use_black_outlines_everywhere",
+        "avoid_color_gradients",
+        "no_soft_round_corners",
+        "shadow_must_be_a_hard_offset_block"
+      ],
+      "text_rules": [
+        "keep_text_uppercase_or_simple_caps",
+        "avoid_serif_fonts",
+        "use_consistent_monoline_weight"
+      ],
+      "spacing_rules": [
+        "maintain_even_vertical_spacing",
+        "keep_padding_large_for_form_elements"
+      ]
+    }
+  }
+}

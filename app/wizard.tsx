@@ -12,14 +12,14 @@ interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
-  options?: string[]; // Chips provided by AI
+  options?: string[];
 }
 
 const PLAN_TYPES = [
-    { id: 'fitness', label: 'Fitness Journey', icon: 'heartbeat' },
-    { id: 'wedding', label: 'Wedding', icon: 'heart' },
-    { id: 'home', label: 'Home Rota', icon: 'home' },
-    { id: 'general', label: 'Other', icon: 'list' },
+    { id: 'fitness', label: 'FITNESS', icon: 'heartbeat' },
+    { id: 'wedding', label: 'WEDDING', icon: 'heart' },
+    { id: 'home', label: 'HOME', icon: 'home' },
+    { id: 'general', label: 'OTHER', icon: 'list' },
 ];
 
 export default function WizardScreen() {
@@ -28,22 +28,40 @@ export default function WizardScreen() {
   const [planType, setPlanType] = useState<PlanType | null>(null);
   const [loading, setLoading] = useState(false);
   const [readyToPlan, setReadyToPlan] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ full_name?: string, username?: string }>({});
   
   const { user } = useAuth();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+      if (user) fetchUserProfile();
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, username')
+        .eq('id', user?.id)
+        .single();
+      
+      if (data) setUserProfile(data);
+  };
 
   const selectPlanType = async (type: string) => {
       const selectedType = type as PlanType;
       setPlanType(selectedType);
       setLoading(true);
       
-      // Start the chat loop
       try {
-          const response = await OpenAIService.chat([], selectedType);
+          const userContext = {
+              name: userProfile.full_name || userProfile.username || 'User',
+              currentDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+          };
+          const response = await OpenAIService.chat([], selectedType, userContext);
           setMessages([{ 
               id: Date.now().toString(), 
-              text: response.message, 
+              text: response.message.toUpperCase(), 
               sender: 'ai',
               options: response.options 
           }]);
@@ -58,23 +76,26 @@ export default function WizardScreen() {
     const textToSend = textOverride || input;
     if (!textToSend.trim()) return;
 
-    const userMsg: Message = { id: Date.now().toString(), text: textToSend, sender: 'user' };
+    const userMsg: Message = { id: Date.now().toString(), text: textToSend.toUpperCase(), sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
     try {
-        // Prepare history for API
         const history = messages.concat(userMsg).map(m => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
             content: m.text
         })) as any;
 
-        const response = await OpenAIService.chat(history, planType || 'general');
+        const userContext = {
+            name: userProfile.full_name || userProfile.username || 'User',
+            currentDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        };
+        const response = await OpenAIService.chat(history, planType || 'general', userContext);
         
         const aiMsg: Message = {
             id: (Date.now() + 1).toString(),
-            text: response.message,
+            text: response.message.toUpperCase(),
             sender: 'ai',
             options: response.options
         };
@@ -93,7 +114,7 @@ export default function WizardScreen() {
       if (!user || !planType) return;
       setLoading(true);
       
-      setMessages(prev => [...prev, { id: 'generating', text: 'Perfect! Designing your plan now...', sender: 'ai' }]);
+      setMessages(prev => [...prev, { id: 'generating', text: 'DESIGNING YOUR PLAN...', sender: 'ai' }]);
 
       try {
           const fullContext = messages
@@ -146,14 +167,14 @@ export default function WizardScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
       
-      <View className="flex-row items-center p-4 border-b border-border">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
-            <FontAwesome name="arrow-left" size={24} color="#D4AF37" />
+      <View className="flex-row items-center p-4 border-b-2 border-black">
+        <TouchableOpacity onPress={() => router.back()} className="mr-4 border-2 border-black p-2 bg-white shadow-block-sm active:shadow-none active:translate-y-0.5">
+            <FontAwesome name="arrow-left" size={16} color="#000000" />
         </TouchableOpacity>
-        <Text className="text-text font-bold text-xl">AI Planner</Text>
+        <Text className="text-black font-bold text-xl font-mono uppercase">AI PLANNER</Text>
         {readyToPlan && (
-            <TouchableOpacity onPress={generatePlan} className="ml-auto bg-primary px-3 py-1 rounded-full">
-                <Text className="text-background font-bold text-xs">Create Plan</Text>
+            <TouchableOpacity onPress={generatePlan} className="ml-auto bg-black px-4 py-2 border-2 border-black shadow-block-sm active:translate-y-0.5 active:shadow-none">
+                <Text className="text-white font-bold text-xs font-mono uppercase">CREATE</Text>
             </TouchableOpacity>
         )}
       </View>
@@ -161,11 +182,13 @@ export default function WizardScreen() {
       {!planType ? (
         <View className="flex-1 p-6 justify-center">
              {loading ? (
-                <ActivityIndicator size="large" color="#D4AF37" />
+                <ActivityIndicator size="large" color="#000000" />
              ) : (
                 <>
-                    <Text className="text-3xl font-bold text-text mb-2">What are we planning?</Text>
-                    <Text className="text-textMuted text-lg mb-8">Choose a category to start the chat.</Text>
+                    <View className="border-l-4 border-black pl-4 mb-8">
+                        <Text className="text-3xl font-bold text-black mb-2 font-mono uppercase">WHAT'S THE PLAN?</Text>
+                        <Text className="text-textMuted text-lg font-mono uppercase">SELECT A CATEGORY.</Text>
+                    </View>
                     
                     <View className="flex-row flex-wrap justify-between">
                         {PLAN_TYPES.map((type, index) => (
@@ -176,10 +199,10 @@ export default function WizardScreen() {
                             >
                                 <TouchableOpacity 
                                     onPress={() => selectPlanType(type.id)}
-                                    className="bg-surface p-6 rounded-2xl border border-border items-center aspect-square justify-center"
+                                    className="bg-white p-6 border-2 border-black items-center aspect-square justify-center shadow-block active:shadow-none active:translate-y-1"
                                 >
-                                    <FontAwesome name={type.icon as any} size={32} color="#D4AF37" className="mb-4" />
-                                    <Text className="text-text font-bold text-center">{type.label}</Text>
+                                    <FontAwesome name={type.icon as any} size={32} color="#000000" className="mb-4" />
+                                    <Text className="text-black font-bold text-center font-mono uppercase">{type.label}</Text>
                                 </TouchableOpacity>
                             </Animated.View>
                         ))}
@@ -196,21 +219,20 @@ export default function WizardScreen() {
                 contentContainerStyle={{ padding: 16 }}
                 renderItem={({ item }) => (
                     <View className={`mb-4 max-w-[85%] ${item.sender === 'user' ? 'self-end' : 'self-start'}`}>
-                        <View className={`p-4 rounded-2xl ${item.sender === 'user' ? 'bg-primary' : 'bg-surface border border-border'}`}>
-                            <Text className={item.sender === 'user' ? 'text-background font-medium' : 'text-text'}>{item.text}</Text>
+                        <View className={`p-4 border-2 border-black shadow-block-sm ${item.sender === 'user' ? 'bg-black' : 'bg-white'}`}>
+                            <Text className={`font-mono font-bold ${item.sender === 'user' ? 'text-white' : 'text-black'}`}>{item.text}</Text>
                         </View>
                         
-                        {/* Render Options if AI */}
                         {item.sender === 'ai' && item.options && (
-                            <View className="flex-row flex-wrap mt-2">
+                            <View className="flex-row flex-wrap mt-3 pl-1">
                                 {item.options.map((opt, idx) => (
                                     <TouchableOpacity 
                                         key={idx} 
                                         onPress={() => sendMessage(opt)}
                                         disabled={loading}
-                                        className="bg-surfaceHighlight border border-border rounded-full px-4 py-2 mr-2 mb-2"
+                                        className="bg-white border-2 border-black px-4 py-2 mr-2 mb-2 shadow-block-sm active:shadow-none active:translate-y-0.5"
                                     >
-                                        <Text className="text-textMuted text-xs font-bold">{opt}</Text>
+                                        <Text className="text-black text-xs font-bold font-mono uppercase">{opt}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -221,11 +243,11 @@ export default function WizardScreen() {
             />
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-                <View className="p-4 border-t border-border bg-background flex-row items-center">
+                <View className="p-4 border-t-2 border-black bg-background flex-row items-center">
                     <TextInput 
-                        className="flex-1 bg-surface text-text p-4 rounded-xl border border-border mr-2"
-                        placeholder={readyToPlan ? "Say 'Create' or add more details..." : "Type or select an option..."}
-                        placeholderTextColor="#666"
+                        className="flex-1 bg-white text-black p-4 border-2 border-black mr-2 font-mono h-14 shadow-block-sm"
+                        placeholder={readyToPlan ? "SAY 'CREATE'..." : "TYPE OR SELECT..."}
+                        placeholderTextColor="#999"
                         value={input}
                         onChangeText={setInput}
                         editable={!loading}
@@ -233,9 +255,9 @@ export default function WizardScreen() {
                     <TouchableOpacity 
                         onPress={() => sendMessage()} 
                         disabled={loading}
-                        className={`p-4 rounded-xl ${loading ? 'bg-surface' : 'bg-primary'}`}
+                        className={`p-4 border-2 border-black h-14 w-14 items-center justify-center shadow-block-sm active:shadow-none active:translate-y-0.5 ${loading ? 'bg-white' : 'bg-black'}`}
                     >
-                        {loading ? <ActivityIndicator color="#D4AF37" /> : <FontAwesome name="send" size={20} color="#0A0A0A" />}
+                        {loading ? <ActivityIndicator color="#000000" /> : <FontAwesome name="send" size={20} color="#FFFFFF" />}
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>

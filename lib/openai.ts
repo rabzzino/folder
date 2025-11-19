@@ -24,11 +24,15 @@ export interface ChatResponse {
 }
 
 export class OpenAIService {
-  static async chat(history: { role: 'user' | 'assistant', content: string }[], planType: string): Promise<ChatResponse> {
+  static async chat(history: { role: 'user' | 'assistant', content: string }[], planType: string, userContext?: { name?: string, currentDate?: string }): Promise<ChatResponse> {
      try {
+       const contextInfo = userContext 
+         ? `\nUser: ${userContext.name || 'User'}. Current Date: ${userContext.currentDate || new Date().toLocaleDateString()}.`
+         : '';
+       
        const completion = await openai.chat.completions.create({
          messages: [
-           { role: "system", content: `You are an expert AI planner consultant for a ${planType} plan. 
+           { role: "system", content: `You are an expert AI planner consultant for a ${planType} plan.${contextInfo}
              Your goal is to gather requirements to build a perfect plan. 
              Ask ONE clear question at a time. 
              Provide 2-4 short, actionable "options" for the user to choose from to answer your question.
