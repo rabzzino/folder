@@ -19,6 +19,7 @@ export default function SettingsScreen() {
   // Profile State
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
+  const [location, setLocation] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   useEffect(() => {
@@ -39,13 +40,14 @@ export default function SettingsScreen() {
   const fetchProfile = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, full_name')
+        .select('username, full_name, location')
         .eq('id', user?.id)
         .single();
       
       if (data) {
           setUsername(data.username || '');
           setFullName(data.full_name || '');
+          setLocation(data.location || '');
       }
   };
 
@@ -58,6 +60,7 @@ export default function SettingsScreen() {
             id: user.id,
             username,
             full_name: fullName,
+            location,
             updated_at: new Date(),
         });
       
@@ -134,6 +137,15 @@ export default function SettingsScreen() {
                   className="bg-white border-2 border-black p-2 mb-4 font-mono shadow-block-sm"
                   placeholder="SET NAME"
               />
+
+              <Text className="text-black text-xs font-bold font-mono uppercase mb-1">LOCATION</Text>
+              <TextInput 
+                  value={location}
+                  onChangeText={setLocation}
+                  className="bg-white border-2 border-black p-2 mb-4 font-mono shadow-block-sm"
+                  placeholder="E.G., LONDON, UK"
+              />
+              <Text className="text-textMuted text-[10px] font-mono uppercase mb-4">HELPS AI FIND LOCAL RESOURCES</Text>
 
               <TouchableOpacity 
                   onPress={updateProfile}

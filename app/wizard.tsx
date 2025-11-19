@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthProvider';
 import { OpenAIService, PlanType } from '../lib/openai';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthProvider';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 interface Message {
   id: string;
@@ -28,7 +28,7 @@ export default function WizardScreen() {
   const [planType, setPlanType] = useState<PlanType | null>(null);
   const [loading, setLoading] = useState(false);
   const [readyToPlan, setReadyToPlan] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ full_name?: string, username?: string }>({});
+  const [userProfile, setUserProfile] = useState<{ full_name?: string, username?: string, location?: string }>({});
   
   const { user } = useAuth();
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function WizardScreen() {
   const fetchUserProfile = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, username')
+        .select('full_name, username, location')
         .eq('id', user?.id)
         .single();
       
@@ -124,7 +124,9 @@ export default function WizardScreen() {
 
           const planData = await OpenAIService.generatePlan({
               type: planType,
-              context: fullContext
+              context: fullContext,
+              location: userProfile.location,
+              currentDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
           });
 
           const { data: plan, error: planError } = await supabase
@@ -142,16 +144,49 @@ export default function WizardScreen() {
           if (planError) throw planError;
 
           if (planData.tasks && planData.tasks.length > 0) {
-             const tasksToInsert = planData.tasks.map((t: any) => ({
-                 plan_id: plan.id,
-                 title: t.title,
-                 description: t.description,
-                 priority: t.priority,
-                 status: 'pending'
-             }));
+             // Calculate due dates based on due_offset_days
+             const startDate = new Date();
+             
+             const tasksToInsert = planData.tasks.map((t: any, index: number) => {
+                 // Calculate due date from offset with smart fallbacks
+                 let dueDate = new Date(startDate);
+                 let offsetDays = t.due_offset_days;
+                 
+                 // Smart fallback if AI didn't provide offset
+                 if (offsetDays === null || offsetDays === undefined) {
+                     console.warn(`Task "${t.title}" missing due_offset_days, applying fallback`);
+                     offsetDays = getSmartFallbackOffset(planType, index);
+                 }
+                 
+                 dueDate.setDate(startDate.getDate() + offsetDays);
+                 dueDate.setHours(12, 0, 0, 0); // Set to noon by default
+                 
+                 return {
+                     plan_id: plan.id,
+                     title: t.title,
+                     description: t.description,
+                     category: t.category,
+                     priority: t.priority,
+                     due_date: dueDate.toISOString(),
+                     status: 'pending'
+                 };
+             });
              
              const { error: taskError } = await supabase.from('tasks').insert(tasksToInsert);
              if (taskError) throw taskError;
+          }
+          
+          // Smart fallback function for missing due dates
+          function getSmartFallbackOffset(type: string, taskIndex: number): number {
+              const fallbacks = {
+                  wedding: [0, 7, 14, 30, 60, 90, 120, 150, 180], // Spread over 6 months
+                  fitness: [0, 7, 14, 21, 28, 35, 42, 49, 56], // Weekly progression
+                  home: [0, 1, 3, 7, 10, 14, 21], // Daily to weekly
+                  general: [0, 3, 7, 14, 21, 30] // Mixed urgency
+              };
+              
+              const offsets = fallbacks[type as keyof typeof fallbacks] || fallbacks.general;
+              return offsets[taskIndex % offsets.length] || (taskIndex * 7); // Fallback to weekly if beyond array
           }
 
           router.replace(`/plan/${plan.id}`);
@@ -225,7 +260,7 @@ export default function WizardScreen() {
                         
                         {item.sender === 'ai' && item.options && (
                             <View className="flex-row flex-wrap mt-3 pl-1">
-                                {item.options.map((opt, idx) => (
+                                {item.options.map((opt: string, idx: number) => (
                                     <TouchableOpacity 
                                         key={idx} 
                                         onPress={() => sendMessage(opt)}

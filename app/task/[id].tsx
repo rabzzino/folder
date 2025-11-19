@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Clipboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -130,8 +130,23 @@ export default function TaskDetailScreen() {
         {task.description && (
           <Animated.View entering={FadeInDown.delay(300)}>
             <View className="bg-white border-2 border-black p-4 mb-4 shadow-block">
-              <Text className="text-black text-xs font-bold font-mono uppercase mb-2">DESCRIPTION</Text>
-              <Text className={`text-textMuted text-base font-mono leading-6 ${isCompleted ? 'line-through opacity-50' : ''}`}>
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-black text-xs font-bold font-mono uppercase">DESCRIPTION</Text>
+                <TouchableOpacity 
+                  onPress={() => {
+                    Clipboard.setString(task.description);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Alert.alert('COPIED', 'Description copied to clipboard!');
+                  }}
+                  className="bg-black px-3 py-1 border-2 border-black shadow-block-sm active:shadow-none active:translate-y-0.5"
+                >
+                  <View className="flex-row items-center">
+                    <FontAwesome name="copy" size={12} color="#FFFFFF" />
+                    <Text className="text-white text-xs font-bold font-mono uppercase ml-2">COPY</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+              <Text className={`text-black text-lg font-mono leading-7 ${isCompleted ? 'line-through opacity-50' : ''}`}>
                 {task.description}
               </Text>
             </View>

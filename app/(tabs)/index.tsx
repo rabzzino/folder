@@ -41,7 +41,7 @@ function TaskCard({ task, onComplete, onPress }: { task: any, onComplete: () => 
               {task.title}
             </Text>
             {task.description && (
-              <Text className={`text-textMuted text-sm mb-2 font-mono leading-5 ${isCompleted ? 'line-through' : ''}`} numberOfLines={2}>
+              <Text className={`text-black text-sm mb-2 font-mono leading-5 ${isCompleted ? 'line-through opacity-60' : ''}`} numberOfLines={2}>
                 {task.description}
               </Text>
             )}
@@ -58,23 +58,27 @@ function TaskCard({ task, onComplete, onPress }: { task: any, onComplete: () => 
               )}
             </View>
           </View>
-          {!isCompleted ? (
-            <TouchableOpacity 
-              onLongPress={handleLongPress}
-              delayLongPress={500}
-              onPressIn={() => setIsPressed(true)}
-              onPressOut={() => setIsPressed(false)}
-              className="mt-1"
-            >
-              <View className={`w-10 h-10 border-2 border-black bg-white items-center justify-center ${isPressed ? 'bg-gray-100' : ''}`}>
+          <TouchableOpacity 
+            onLongPress={handleLongPress}
+            delayLongPress={500}
+            onPressIn={() => setIsPressed(true)}
+            onPressOut={() => setIsPressed(false)}
+            className="mt-1"
+          >
+            <View className={`w-10 h-10 border-2 border-black items-center justify-center ${
+              isCompleted 
+                ? 'bg-black' 
+                : isPressed 
+                  ? 'bg-gray-100' 
+                  : 'bg-white'
+            }`}>
+              {isCompleted ? (
+                <FontAwesome name="check" size={18} color="#FFFFFF" />
+              ) : (
                 <FontAwesome name="square-o" size={18} color="#000000" />
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View className="w-10 h-10 border-2 border-black bg-black items-center justify-center mt-1">
-              <FontAwesome name="check" size={18} color="#FFFFFF" />
+              )}
             </View>
-          )}
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -134,14 +138,18 @@ export default function HomeScreen() {
       // Haptic feedback
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      // Optimistic update - mark as completed but keep in list
+      // Find current task status
+      const currentTask = activeTasks.find(t => t.id === taskId);
+      const newStatus = currentTask?.status === 'completed' ? 'pending' : 'completed';
+      
+      // Optimistic update - toggle status but keep in list
       setActiveTasks(prev => prev.map(t => 
-          t.id === taskId ? { ...t, status: 'completed' } : t
+          t.id === taskId ? { ...t, status: newStatus } : t
       ));
       
       const { error } = await supabase
           .from('tasks')
-          .update({ status: 'completed' })
+          .update({ status: newStatus })
           .eq('id', taskId);
       
       if (error) {
