@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthProvider';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeOut } from 'react-native-reanimated';
+import Animated, { FadeOut, SlideInRight, SlideOutLeft } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 
 export default function CalendarScreen() {
@@ -176,24 +176,26 @@ export default function CalendarScreen() {
           )}
         </View>
         
-        <FlatList 
-          data={filteredTasks}
-          keyExtractor={item => item.id}
-          ListEmptyComponent={
-            <View className="card-brutal border-dashed items-center py-8">
-              <Text className="text-textMuted font-mono uppercase text-center">
-                {selectedDate ? 'NO TASKS ON THIS DATE' : 'NO PENDING TASKS'}
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <TaskRow 
-              task={item} 
-              onToggle={() => toggleTask(item.id)}
-              onPress={() => router.push(`/task/${item.id}`)}
-            />
-          )}
-        />
+        <Animated.View entering={SlideInRight.springify()} exiting={SlideOutLeft} key={selectedDate || 'all'}>
+          <FlatList 
+            data={filteredTasks}
+            keyExtractor={item => item.id}
+            ListEmptyComponent={
+              <View className="card-brutal border-dashed items-center py-8">
+                <Text className="text-textMuted font-mono uppercase text-center">
+                  {selectedDate ? 'NO TASKS ON THIS DATE' : 'NO PENDING TASKS'}
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <TaskRow 
+                task={item} 
+                onToggle={() => toggleTask(item.id)}
+                onPress={() => router.push(`/task/${item.id}`)}
+              />
+            )}
+          />
+        </Animated.View>
       </View>
     </SafeAreaView>
   );

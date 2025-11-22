@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthProvider';
 import { OpenAIService, PlanType } from '../lib/openai';
 import { supabase } from '../lib/supabase';
+import { TypingIndicator } from '../components/TypingIndicator';
+import { BrutalistSpinner } from '../components/BrutalistSpinner';
 
 interface Message {
   id: string;
@@ -217,7 +219,10 @@ export default function WizardScreen() {
       {!planType ? (
         <View className="flex-1 p-6 justify-center">
              {loading ? (
-                <ActivityIndicator size="large" color="#000000" />
+                <View className="items-center">
+                  <BrutalistSpinner size={60} />
+                  <Text className="text-black font-mono uppercase mt-4 font-bold">LOADING...</Text>
+                </View>
              ) : (
                 <>
                     <View className="border-l-4 border-black pl-4 mb-8">
@@ -252,6 +257,7 @@ export default function WizardScreen() {
                 data={messages}
                 keyExtractor={item => item.id}
                 contentContainerStyle={{ padding: 16 }}
+                ListFooterComponent={loading ? <TypingIndicator /> : null}
                 renderItem={({ item }) => (
                     <View className={`mb-4 max-w-[85%] ${item.sender === 'user' ? 'self-end' : 'self-start'}`}>
                         <View className={`p-4 border-2 border-black shadow-block-sm ${item.sender === 'user' ? 'bg-black' : 'bg-white'}`}>

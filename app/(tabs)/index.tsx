@@ -1,12 +1,13 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import Animated, { FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 // Task Card Component with Long Press Animation
 function TaskCard({ task, onComplete, onPress }: { task: any, onComplete: () => void, onPress: () => void }) {
@@ -85,12 +86,15 @@ function TaskCard({ task, onComplete, onPress }: { task: any, onComplete: () => 
   );
 }
 
+const { width, height } = Dimensions.get('window');
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const [plans, setPlans] = useState<any[]>([]);
   const [sharedPlans, setSharedPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
   const router = useRouter();
 
   const fetchPlans = async () => {
@@ -147,6 +151,31 @@ export default function HomeScreen() {
           t.id === taskId ? { ...t, status: newStatus } : t
       ));
       
+      // Check if all tasks are now completed
+      const updatedTasks = activeTasks.map(t => 
+          t.id === taskId ? { ...t, status: newStatus } : t
+      );
+      const allCompleted = updatedTasks.every(t => t.status === 'completed');
+      
+      if (allCompleted && newStatus === 'completed') {
+          // Trigger confetti!
+          setShowConfetti(true);
+          
+          // Initial burst haptic
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          
+          // Confetti takes 2.5 seconds to fall (fallSpeed: 2500)
+          // Haptic feedback when pieces land (staggered like Apple)
+          const impactTimings = [2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900];
+          impactTimings.forEach(delay => {
+              setTimeout(() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }, delay);
+          });
+          
+          setTimeout(() => setShowConfetti(false), 3500);
+      }
+      
       const { error } = await supabase
           .from('tasks')
           .update({ status: newStatus })
@@ -162,28 +191,45 @@ export default function HomeScreen() {
       return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
   };
 
-  const renderPlanCard = ({ item, index }: { item: any, index: number }) => (
-    <Link href={`/plan/${item.id}`} asChild>
-      <TouchableOpacity className="mr-4 w-64">
-         <View className="card-brutal h-40 justify-between bg-white">
+  const PlanCard = ({ item, index }: { item: any, index: number }) => {
+    const progressWidth = useSharedValue(0);
+    
+    const progressStyle = useAnimatedStyle(() => ({
+      width: `${progressWidth.value}%`,
+    }));
+
+    useEffect(() => {
+      // Animate progress bar on mount
+      progressWidth.value = withSpring(35, { damping: 15 });
+    }, []);
+
+    return (
+      <Link href={`/plan/${item.id}`} asChild>
+        <TouchableOpacity className="mr-4 w-64">
+          <View className="card-brutal h-40 justify-between bg-white">
             <View className="flex-row justify-between items-start">
-                <View className="bg-black px-3 py-1 border border-black">
-                    <Text className="text-white text-xs font-bold uppercase font-mono">{item.type}</Text>
-                </View>
-                <Text className="text-black font-bold text-xs font-mono">35%</Text>
+              <View className="bg-black px-3 py-1 border border-black">
+                <Text className="text-white text-xs font-bold uppercase font-mono">{item.type}</Text>
+              </View>
+              <Text className="text-black font-bold text-xs font-mono">35%</Text>
             </View>
 
             <View>
-                <Text className="text-black font-bold text-xl leading-6 mb-1 uppercase font-mono" numberOfLines={1}>{item.title}</Text>
-                <Text className="text-textMuted text-xs font-mono uppercase">12 DAYS LEFT</Text>
+              <Text className="text-black font-bold text-xl leading-6 mb-1 uppercase font-mono" numberOfLines={1}>{item.title}</Text>
+              <Text className="text-textMuted text-xs font-mono uppercase">12 DAYS LEFT</Text>
             </View>
 
-            <View className="h-3 border-2 border-black bg-white mt-2">
-                <View className="h-full w-[35%] bg-black" />
+            <View className="h-3 border-2 border-black bg-white mt-2 overflow-hidden">
+              <Animated.View style={progressStyle} className="h-full bg-black" />
             </View>
           </View>
-      </TouchableOpacity>
-    </Link>
+        </TouchableOpacity>
+      </Link>
+    );
+  };
+
+  const renderPlanCard = ({ item, index }: { item: any, index: number }) => (
+    <PlanCard item={item} index={index} />
   );
 
   const renderQuickAccess = (icon: string, label: string, route: string) => (
@@ -199,6 +245,20 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      {showConfetti && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height, zIndex: 9999, pointerEvents: 'none' }}>
+          <ConfettiCannon
+            count={300}
+            origin={{ x: width / 2, y: 0 }}
+            explosionSpeed={400}
+            fallSpeed={2500}
+            fadeOut={true}
+            autoStart={true}
+            autoStartDelay={0}
+            colors={['#000000', '#FFFFFF', '#CCCCCC', '#999999']}
+          />
+        </View>
+      )}
       <ScrollView 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchPlans} tintColor="#000000" />}
